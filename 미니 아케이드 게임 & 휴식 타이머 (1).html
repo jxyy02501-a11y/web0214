@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study Break - Neon Reflex & Break Timer</title>
+  <style>
+    :root {
+      --bg-color: #f1f5f9;
+      --panel-bg: rgba(255, 255, 255, 0.95);
+      --accent-blue: #2563eb;
+      --accent-red: #e11d48;
+      --accent-yellow: #d97706;
+      --accent-green: #059669;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background: linear-gradient(135deg, #eef2f6 0%, #e0e7ff 100%);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Noto Sans KR", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* 상단 대시보드: 접속 및 휴식 타이머 */
+    .dashboard {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+      width: 800px;
+      max-width: 95vw;
+    }
+
+    .timer-card, .score-card {
+      background: var(--panel-bg);
+      border: 1px solid rgba(37, 99, 235, 0.2);
+      border-radius: 12px;
+      padding: 10px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+      backdrop-filter: blur(8px);
+    }
+
+    .timer-card {
+      flex: 1.4;
+      border-color: rgba(217, 119, 6, 0.35);
+    }
+
+    .score-card {
+      flex: 1;
+    }
+
+    .card-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 2px;
+      font-weight: 600;
+    }
+
+    .card-value {
+      font-family: "Courier New", Courier, monospace;
+      font-size: 24px;
+      font-weight: bold;
+      color: var(--accent-blue);
+      letter-spacing: 1px;
+    }
+
+    .timer-card .card-value {
+      color: var(--accent-yellow);
+    }
+
+    .timer-settings {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .timer-select {
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      color: #0f172a;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: 6px;
+      padding: 4px 8px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* 게임 캔버스 컨테이너 */
+    .game-container {
+      position: relative;
+      width: 800px;
+      height: 520px;
+      max-width: 95vw;
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 12px 35px rgba(37, 99, 235, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+      border: 2px solid #93c5fd;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      background: #f8fafc;
+    }
+
+    /* UI 오버레이 */
+    .overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(255, 255, 255, 0.92);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(6px);
+      transition: opacity 0.25s ease;
+      z-index: 10;
+    }
+
+    .overlay.hidden {
+      display: none;
+    }
+
+    .overlay-title {
+      font-size: 36px;
+      font-weight: 900;
+      letter-spacing: 1.5px;
+      color: #1e3a8a;
+      text-shadow: 0 2px 10px rgba(37, 99, 235, 0.15);
+      margin-bottom: 10px;
+    }
+
+    .overlay-desc {
+      color: #475569;
+      font-size: 14px;
+      margin-bottom: 24px;
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    .key-badge {
+      display: inline-block;
+      background: #e2e8f0;
+      border: 1px solid #cbd5e1;
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-family: monospace;
+      color: #1d4ed8;
+      font-weight: bold;
+      font-size: 12px;
+    }
+
+    .start-btn {
+      background: linear-gradient(135deg, #2563eb, #0284c7);
+      color: #ffffff;
+      font-size: 17px;
+      font-weight: 800;
+      padding: 12px 36px;
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+
+    .start-btn:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 25px rgba(37, 99, 235, 0.5);
+    }
+
+    /* 공부 복귀 권고 모달 */
+    .alarm-modal {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: #ffffff;
+      border: 2px solid var(--accent-red);
+      box-shadow: 0 10px 40px rgba(225, 29, 72, 0.2);
+      border-radius: 14px;
+      padding: 24px 28px;
+      text-align: center;
+      z-index: 20;
+      display: none;
+      width: 330px;
+    }
+
+    .alarm-modal.active {
+      display: block;
+      animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    @keyframes popIn {
+      from { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+      to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+
+    .alarm-title {
+      color: var(--accent-red);
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+
+    .alarm-text {
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .alarm-btn {
+      background: var(--accent-red);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 9px 20px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .footer-hints {
+      margin-top: 10px;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 상단 대시보드 (접속/공부 휴식 타이머) -->
+  <div class="dashboard">
+    <div class="timer-card">
+      <div>
+        <div class="card-label">⏱️ 총 휴식(접속) 시간</div>
+        <div class="card-value" id="sessionTimerDisplay">00:00</div>
+      </div>
+      <div class="timer-settings">
+        <label for="breakLimit" style="font-size: 11px; color: var(--text-muted);">알림 설정:</label>
+        <select id="breakLimit" class="timer-select">
+          <option value="5">5분</option>
+          <option value="10" selected>10분</option>
+          <option value="15">15분</option>
+          <option value="20">20분</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="score-card">
+      <div>
+        <div class="card-label">최고 기록</div>
+        <div class="card-value" id="highScoreDisplay" style="color: var(--accent-green)">0</div>
+      </div>
+      <div style="text-align: right;">
+        <div class="card-label">현재 점수</div>
+        <div class="card-value" id="currentScoreDisplay">0</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 게임 메인 캔버스 뷰 -->
+  <div class="game-container">
+    <canvas id="gameCanvas" width="800" height="520"></canvas>
+
+    <!-- 게임 시작 / 게임 오버 오버레이 -->
+    <div id="gameOverlay" class="overlay">
+      <h1 class="overlay-title" id="overlayTitle">REFLEX BREAK</h1>
+      <p class="overlay-desc" id="overlayDesc">
+        다가오는 붉은 탄막을 피하고 <b>노란 에너지 큐브</b>를 수집해 잠을 깨우세요!<br>
+        조작: <span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span> 또는 <span class="key-badge">방향키</span> (마우스 조작 지원)
+      </p>
+      <button class="start-btn" id="startBtn">게임 시작 (Space)</button>
+    </div>
+
+    <!-- 공부 복귀 알림 모달 -->
+    <div id="alarmModal" class="alarm-modal">
+      <div class="alarm-title">🔔 시험공부 복귀 시간!</div>
+      <p class="alarm-text" id="alarmMsg">설정한 휴식 시간이 지났습니다.<br>잠을 깼으니 다시 공부에 집중해볼까요?</p>
+      <button class="alarm-btn" id="closeAlarmBtn">확인 (5분 더 휴식)</button>
+    </div>
+  </div>
+
+  <div class="footer-hints">
+    💡 팁: 에너지를 연속 5개 획득하면 화면의 모든 탄막을 없애는 <b>충격파(EMP)</b>가 발동합니다.
+  </div>
+
+  <script>
+    // --- 1. Web Audio API 신디사이저 효과음 (외부 에셋 제로) ---
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioContext();
+    }
+
+    function playSound(type) {
+      if (!audioCtx) return;
+      try {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        const now = audioCtx.currentTime;
+
+        if (type === 'start') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(260, now);
+          osc.frequency.exponentialRampToValueAtTime(520, now + 0.15);
+          gain.gain.setValueAtTime(0.2, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.2);
+        } else if (type === 'collect') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(550, now);
+          osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.12);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.12);
+        } else if (type === 'emp') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(700, now);
+          osc.frequency.exponentialRampToValueAtTime(140, now + 0.35);
+          gain.gain.setValueAtTime(0.3, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        } else if (type === 'over') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(200, now);
+          osc.frequency.exponentialRampToValueAtTime(60, now + 0.4);
+          gain.gain.setValueAtTime(0.35, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.45);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.45);
+        } else if (type === 'alarm') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(660, now);
+          osc.frequency.setValueAtTime(880, now + 0.15);
+          gain.gain.setValueAtTime(0.25, now);
+          gain.gain.linearRampToValueAtTime(0.01, now + 0.35);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now);
+          osc.stop(now + 0.35);
+        }
+      } catch (e) {}
+    }
+
+    // --- 2. 휴식 타이머 시스템 ---
+    let totalSeconds = 0;
+    const sessionTimerDisplay = document.getElementById('sessionTimerDisplay');
+    const breakLimitSelect = document.getElementById('breakLimit');
+    const alarmModal = document.getElementById('alarmModal');
+    const alarmMsg = document.getElementById('alarmMsg');
+    const closeAlarmBtn = document.getElementById('closeAlarmBtn');
+    let alarmTargetMinutes = parseInt(breakLimitSelect.value, 10);
+    let alarmDismissed = false;
+
+    setInterval(() => {
+      totalSeconds++;
+      const m = String(Math.floor(totalSeconds / 60)).padStart(2, '0');
+      const s = String(totalSeconds % 60).padStart(2, '0');
+      sessionTimerDisplay.textContent = `${m}:${s}`;
+
+      if (Math.floor(totalSeconds / 60) >= alarmTargetMinutes && !alarmDismissed) {
+        triggerAlarm();
+      }
+    }, 1000);
+
+    breakLimitSelect.addEventListener('change', () => {
+      alarmTargetMinutes = parseInt(breakLimitSelect.value, 10);
+      alarmDismissed = false;
+    });
+
+    function triggerAlarm() {
+      alarmDismissed = true;
+      alarmMsg.innerHTML = `총 접속 시간: <b>${Math.floor(totalSeconds / 60)}분 경과</b>!<br>잠을 깼으니 시험공부로 복귀할 시간입니다.`;
+      alarmModal.classList.add('active');
+      playSound('alarm');
+    }
+
+    closeAlarmBtn.addEventListener('click', () => {
+      alarmModal.classList.remove('active');
+      alarmTargetMinutes = Math.floor(totalSeconds / 60) + 5;
+      alarmDismissed = false;
+    });
+
+    // --- 3. 캔버스 아케이드 게임 로직 ---
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const currentScoreDisplay = document.getElementById('currentScoreDisplay');
+    const highScoreDisplay = document.getElementById('highScoreDisplay');
+    const overlay = document.getElementById('gameOverlay');
+    const overlayTitle = document.getElementById('overlayTitle');
+    const overlayDesc = document.getElementById('overlayDesc');
+    const startBtn = document.getElementById('startBtn');
+
+    let highScore = parseInt(localStorage.getItem('study_reflex_high') || '0', 10);
+    highScoreDisplay.textContent = highScore;
+
+    let isPlaying = false;
+    let score = 0;
+    let gameLoopId = null;
+    let gameTime = 0;
+
+    const player = {
+      x: canvas.width / 2,
+      y: canvas.height / 2,
+      radius: 13,
+      speed: 5.5,
+      empGauge: 0
+    };
+
+    let bullets = [];
+    let items = [];
+    let particles = [];
+    let shockwaves = [];
+
+    const keys = {};
+    const mouse = { x: canvas.width / 2, y: canvas.height / 2, active: false };
+
+    window.addEventListener('keydown', (e) => {
+      keys[e.code] = true;
+      if (e.code === 'Space' && !isPlaying) {
+        e.preventDefault();
+        startGame();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keys[e.code] = false;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      mouse.x = (e.clientX - rect.left) * scaleX;
+      mouse.y = (e.clientY - rect.top) * scaleY;
+      mouse.active = true;
+    });
+
+    function resetGame() {
+      score = 0;
+      gameTime = 0;
+      bullets = [];
+      items = [];
+      particles = [];
+      shockwaves = [];
+      player.x = canvas.width / 2;
+      player.y = canvas.height / 2;
+      player.empGauge = 0;
+      currentScoreDisplay.textContent = score;
+
+      for (let i = 0; i < 3; i++) {
+        spawnItem();
+      }
+    }
+
+    function startGame() {
+      initAudio();
+      playSound('start');
+      resetGame();
+      isPlaying = true;
+      overlay.classList.add('hidden');
+      if (gameLoopId) cancelAnimationFrame(gameLoopId);
+      gameLoop();
+    }
+
+    function gameOver() {
+      isPlaying = false;
+      playSound('over');
+      createExplosion(player.x, player.y, '#2563eb', 25);
+
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem('study_reflex_high', highScore);
+        highScoreDisplay.textContent = highScore;
+      }
+
+      overlayTitle.textContent = "GAME OVER";
+      overlayDesc.innerHTML = `달성 점수: <b style="color:var(--accent-yellow); font-size:16px;">${score}점</b><br>잠이 좀 깨셨나요? 다시 도전하거나 공부를 시작하세요!`;
+      startBtn.textContent = "다시 시작 (Space)";
+      overlay.classList.remove('hidden');
+    }
+
+    function spawnItem() {
+      const margin = 40;
+      items.push({
+        x: margin + Math.random() * (canvas.width - margin * 2),
+        y: margin + Math.random() * (canvas.height - margin * 2),
+        radius: 9,
+        glowPhase: Math.random() * Math.PI
+      });
+    }
+
+    function handleBulletSpawns() {
+      gameTime++;
+      const spawnInterval = Math.max(15, 45 - Math.floor(score / 80));
+
+      if (gameTime % spawnInterval === 0) {
+        const edge = Math.floor(Math.random() * 4);
+        let bx, by;
+        if (edge === 0) { bx = Math.random() * canvas.width; by = -12; }
+        else if (edge === 1) { bx = canvas.width + 12; by = Math.random() * canvas.height; }
+        else if (edge === 2) { bx = Math.random() * canvas.width; by = canvas.height + 12; }
+        else { bx = -12; by = Math.random() * canvas.height; }
+
+        const targetAngle = Math.atan2(player.y - by, player.x - bx);
+        const spread = (Math.random() - 0.5) * 0.45;
+        const speed = 2.4 + Math.min(score * 0.003, 3.8);
+
+        bullets.push({
+          x: bx,
+          y: by,
+          vx: Math.cos(targetAngle + spread) * speed,
+          vy: Math.sin(targetAngle + spread) * speed,
+          radius: 5.5 + Math.random() * 2
+        });
+      }
+    }
+
+    function triggerEMP() {
+      playSound('emp');
+      shockwaves.push({
+        x: player.x,
+        y: player.y,
+        radius: 10,
+        alpha: 1
+      });
+
+      bullets.forEach(b => {
+        createExplosion(b.x, b.y, '#2563eb', 7);
+        score += 5;
+      });
+      bullets = [];
+    }
+
+    function createExplosion(x, y, color, count) {
+      for (let i = 0; i < count; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const spd = Math.random() * 4.5 + 1;
+        particles.push({
+          x, y,
+          vx: Math.cos(angle) * spd,
+          vy: Math.sin(angle) * spd,
+          color,
+          life: 1.0,
+          decay: Math.random() * 0.03 + 0.02
+        });
+      }
+    }
+
+    function gameLoop() {
+      if (!isPlaying) return;
+
+      let dx = 0;
+      let dy = 0;
+
+      if (keys['KeyW'] || keys['ArrowUp']) dy -= 1;
+      if (keys['KeyS'] || keys['ArrowDown']) dy += 1;
+      if (keys['KeyA'] || keys['ArrowLeft']) dx -= 1;
+      if (keys['KeyD'] || keys['ArrowRight']) dx += 1;
+
+      if (dx !== 0 && dy !== 0) {
+        dx *= 0.7071;
+        dy *= 0.7071;
+      }
+
+      if (dx !== 0 || dy !== 0) {
+        player.x += dx * player.speed;
+        player.y += dy * player.speed;
+        mouse.active = false;
+      } else if (mouse.active) {
+        const mdx = mouse.x - player.x;
+        const mdy = mouse.y - player.y;
+        const dist = Math.hypot(mdx, mdy);
+        if (dist > 4) {
+          player.x += (mdx / dist) * Math.min(dist * 0.22, player.speed);
+          player.y += (mdy / dist) * Math.min(dist * 0.22, player.speed);
+        }
+      }
+
+      player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+      player.y = Math.max(player.radius, Math.min(canvas.height - player.radius, player.y));
+
+      handleBulletSpawns();
+
+      ctx.fillStyle = 'rgba(248, 250, 252, 0.42)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = 'rgba(37, 99, 235, 0.08)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < canvas.width; x += 40) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 0; y < canvas.height; y += 40) {
+        ctx.beginPath();
+        ctx.moveTo(0, y); ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      for (let i = shockwaves.length - 1; i >= 0; i--) {
+        const sw = shockwaves[i];
+        sw.radius += 12;
+        sw.alpha -= 0.025;
+        ctx.beginPath();
+        ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(37, 99, 235, ${Math.max(0, sw.alpha)})`;
+        ctx.lineWidth = 4;
+        ctx.stroke();
+        if (sw.alpha <= 0) shockwaves.splice(i, 1);
+      }
+
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life -= p.decay;
+        if (p.life <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        ctx.fillStyle = p.color;
+        ctx.globalAlpha = p.life;
+        ctx.fillRect(p.x, p.y, 4, 4);
+        ctx.globalAlpha = 1.0;
+      }
+
+      for (let i = items.length - 1; i >= 0; i--) {
+        const it = items[i];
+        it.glowPhase += 0.08;
+        const pulse = Math.sin(it.glowPhase) * 2;
+
+        ctx.shadowColor = 'rgba(234, 179, 8, 0.4)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.arc(it.x, it.y, it.radius + pulse, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#b45309';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        const dist = Math.hypot(player.x - it.x, player.y - it.y);
+        if (dist < player.radius + it.radius + 4) {
+          playSound('collect');
+          createExplosion(it.x, it.y, '#f59e0b', 12);
+          items.splice(i, 1);
+          score += 15;
+          player.empGauge += 1;
+
+          if (player.empGauge >= 5) {
+            triggerEMP();
+            player.empGauge = 0;
+          }
+          currentScoreDisplay.textContent = score;
+          spawnItem();
+        }
+      }
+
+      for (let i = bullets.length - 1; i >= 0; i--) {
+        const b = bullets[i];
+        b.x += b.vx;
+        b.y += b.vy;
+
+        ctx.fillStyle = '#ef4444';
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.4)';
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#991b1b';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        const dist = Math.hypot(player.x - b.x, player.y - b.y);
+        if (dist < player.radius + b.radius - 2) {
+          gameOver();
+          return;
+        }
+
+        if (b.x < -20 || b.x > canvas.width + 20 || b.y < -20 || b.y > canvas.height + 20) {
+          bullets.splice(i, 1);
+          score += 1;
+          currentScoreDisplay.textContent = score;
+        }
+      }
+
+      ctx.shadowColor = 'rgba(37, 99, 235, 0.4)';
+      ctx.shadowBlur = 10;
+      ctx.fillStyle = '#2563eb';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#1d4ed8';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius * 0.45, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#f59e0b';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(player.x, player.y, player.radius + 6, 0, (Math.PI * 2) * (player.empGauge / 5));
+      ctx.stroke();
+
+      gameLoopId = requestAnimationFrame(gameLoop);
+    }
+
+    startBtn.addEventListener('click', startGame);
+  </script>
+</body>
+</html>
